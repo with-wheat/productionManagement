@@ -7,8 +7,6 @@
     "prebuild": "node scripts/copy-questions.js",
     "dev": "next dev",
     "build": "next build",
-    "build:gitee": "node scripts/build-gitee.js",
-    "deploy:gitee": "npm run build:gitee && node scripts/deploy-gitee.js",
     "start": "next start",
     "lint": "next lint",
     "import-excel": "node scripts/import-excel.mjs"
