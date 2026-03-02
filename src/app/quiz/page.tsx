@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Question } from '@/types/question';
-import { fisherYatesShuffle } from '@/lib/shuffle';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
@@ -14,9 +13,11 @@ export default function QuizPage() {
   const [list, setList] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
-  const [answered, setAnswered] = useState<Record<string, { selected: string; correct: boolean }>>({});
+  const [answered, setAnswered] = useState<
+    Record<string, { selected: string; correct: boolean }>
+  >({});
 
-  const loadAndShuffle = useCallback(async () => {
+  const loadQuestions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -28,8 +29,8 @@ export default function QuizPage() {
         setList([]);
         return;
       }
-      const shuffled = fisherYatesShuffle(data);
-      setList(shuffled);
+      // 保持 Excel 中的原始顺序，不再打乱
+      setList(data);
       setIndex(0);
       setSelected(null);
       setAnswered({});
@@ -42,12 +43,20 @@ export default function QuizPage() {
   }, []);
 
   useEffect(() => {
-    loadAndShuffle();
-  }, [loadAndShuffle]);
+    loadQuestions();
+  }, [loadQuestions]);
 
   const current = list[index];
   const isLast = index === list.length - 1;
   const hasAnswered = current && current.id in answered;
+  const answeredCount = Object.keys(answered).length;
+
+  // 当切换题目时，根据已答记录恢复当前题的选中状态
+  useEffect(() => {
+    if (!current) return;
+    const info = answered[current.id];
+    setSelected(info?.selected ?? null);
+  }, [current, answered]);
 
   const handleSelect = (optionLabel: string) => {
     if (hasAnswered) return;
@@ -103,14 +112,50 @@ export default function QuizPage() {
   return (
     <main className="min-h-screen px-4 py-4 pb-28 sm:p-6 sm:pb-24">
       <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center text-sm text-slate-500 mb-4 sm:mb-6">
-          <span>第 {index + 1} / {list.length} 题</span>
-          <button
-            onClick={() => router.push('/')}
-            className="py-2 -my-2 px-2 text-slate-500 active:text-slate-700 touch-manipulation"
-          >
-            退出
-          </button>
+        <div className="mb-3 sm:mb-4">
+          <div className="flex justify-between items-center text-sm text-slate-500 mb-2">
+            <span>
+              第 {index + 1} / {list.length} 题
+            </span>
+            <button
+              onClick={() => router.push('/')}
+              className="py-2 -my-2 px-2 text-slate-500 active:text-slate-700 touch-manipulation"
+            >
+              退出
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-[11px] sm:text-xs text-slate-500 mb-1">
+            <span>点击题号可快速跳转</span>
+            <span>
+              已答 {answeredCount} / {list.length}
+            </span>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+            {list.map((q, i) => {
+              const info = answered[q.id];
+              const isCurrent = i === index;
+              const isDone = !!info;
+              const isCorrect = info?.correct;
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  className={`flex items-center justify-center rounded-full border min-w-[32px] h-8 text-xs font-medium shrink-0 touch-manipulation active:scale-[0.96] ${
+                    isCurrent
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                      : isDone
+                        ? isCorrect
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-red-400 bg-red-50 text-red-700'
+                        : 'border-slate-300 bg-white text-slate-600'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-6">
