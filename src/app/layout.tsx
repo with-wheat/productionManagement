@@ -1,5 +1,12 @@
 import type { Metadata, Viewport } from 'next';
+import { Noto_Sans_SC } from 'next/font/google';
 import './globals.css';
+
+const notoSansSC = Noto_Sans_SC({
+  subsets: ['latin'],
+  variable: '--font-noto-sans',
+  weight: ['400', '500', '600', '700'],
+});
 
 export const metadata: Metadata = {
   title: '刷题系统 - 安全生产管理人员',
@@ -13,6 +20,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: 'cover',
+  themeColor: '#0d9488',
 };
 
 export default function RootLayout({
@@ -21,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN">
-      <body className="min-h-screen bg-slate-50 font-sans antialiased">
+    <html lang="zh-CN" className={`${notoSansSC.variable} antialiased`}>
+      <body className="min-h-screen bg-background font-sans">
         {children}
       </body>
     </html>
