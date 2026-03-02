@@ -69,41 +69,21 @@ function ProgressRing({ current, total }: { current: number; total: number }) {
   );
 }
 
-/* ---- Answer Feedback Banner ---- */
-function AnswerFeedback({
-  correct,
-  correctAnswer,
-}: {
-  correct: boolean;
-  correctAnswer: string;
-}) {
+/* ---- Answer Feedback Banner (only for wrong answers) ---- */
+function AnswerFeedback({ correctAnswer }: { correctAnswer: string }) {
   return (
-    <div
-      className={`rounded-xl px-4 py-3 flex items-start gap-3 animate-slide-up ${
-        correct
-          ? 'bg-[#22c55e]/10 border-2 border-[#22c55e]/40'
-          : 'bg-[#ef4444]/10 border-2 border-[#ef4444]/40'
-      }`}
-    >
-      <div
-        className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-          correct ? 'bg-[#22c55e] text-[#fff]' : 'bg-[#ef4444] text-[#fff]'
-        }`}
-      >
-        {correct ? <IconCheck size={14} /> : <IconX size={14} />}
+    <div className="rounded-xl px-4 py-3 flex items-start gap-3 animate-slide-up bg-[#ef4444]/10 border-2 border-[#ef4444]/40">
+      <div className="mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-[#ef4444] text-[#fff]">
+        <IconX size={14} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`font-semibold text-sm ${correct ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
-          {correct ? '回答正确！' : '回答错误'}
+        <p className="font-semibold text-sm text-[#dc2626]">回答错误</p>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {'正确答案是 '}
+          <span className="font-bold text-[#16a34a] bg-[#22c55e]/15 px-1.5 py-0.5 rounded">
+            {correctAnswer}
+          </span>
         </p>
-        {!correct && (
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {'正确答案是 '}
-            <span className="font-bold text-[#16a34a] bg-[#22c55e]/15 px-1.5 py-0.5 rounded">
-              {correctAnswer}
-            </span>
-          </p>
-        )}
       </div>
     </div>
   );
@@ -122,7 +102,7 @@ function QuestionGrid({
   onSelect: (i: number) => void;
 }) {
   return (
-    <div className="grid grid-cols-5 gap-1.5">
+    <div className="grid grid-cols-5 gap-2">
       {list.map((q, i) => {
         const info = answered[q.id];
         const isCurrent = i === index;
@@ -133,7 +113,7 @@ function QuestionGrid({
             key={q.id}
             type="button"
             onClick={() => onSelect(i)}
-            className={`flex items-center justify-center rounded-md aspect-square text-[11px] font-bold touch-manipulation transition-all duration-150 active:scale-95 ${
+            className={`flex items-center justify-center rounded-lg aspect-square text-xs font-bold touch-manipulation transition-all duration-150 active:scale-95 ${
               isCurrent
                 ? isDone
                   ? isCorrect
@@ -167,6 +147,8 @@ export default function QuizPage() {
     Record<string, { selected: string; correct: boolean }>
   >({});
   const [showNav, setShowNav] = useState(false);
+  const [correctFlash, setCorrectFlash] = useState(false);
+  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadQuestions = useCallback(async () => {
     setLoading(true);
@@ -196,6 +178,13 @@ export default function QuizPage() {
     loadQuestions();
   }, [loadQuestions]);
 
+  // Cleanup timer
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    };
+  }, []);
+
   const current = list[index];
   const isLast = index === list.length - 1;
   const hasAnswered = current && current.id in answered;
@@ -220,20 +209,7 @@ export default function QuizPage() {
     return raw;
   };
 
-  const handleSelect = (optionLabel: string) => {
-    if (hasAnswered) return;
-    setSelected(optionLabel);
-    const correct =
-      optionLabel.toUpperCase() ===
-      (current.answer?.toUpperCase()?.slice(0, 1) ?? '');
-    setAnswered((prev) => ({
-      ...prev,
-      [current.id]: { selected: optionLabel, correct },
-    }));
-  };
-
-  const handleNext = () => {
-    if (!hasAnswered) return;
+  const advanceToNext = useCallback(() => {
     if (isLast) {
       const wrongIds = list
         .filter((q) => answered[q.id] && !answered[q.id].correct)
@@ -244,11 +220,41 @@ export default function QuizPage() {
       );
       return;
     }
+    setCorrectFlash(false);
     setIndex((i) => i + 1);
     setSelected(null);
+  }, [isLast, list, answered, router]);
+
+  const handleSelect = (optionLabel: string) => {
+    if (hasAnswered) return;
+    setSelected(optionLabel);
+    const correct =
+      optionLabel.toUpperCase() ===
+      (current.answer?.toUpperCase()?.slice(0, 1) ?? '');
+    setAnswered((prev) => ({
+      ...prev,
+      [current.id]: { selected: optionLabel, correct },
+    }));
+
+    // Auto-advance on correct answer after a brief flash
+    if (correct) {
+      setCorrectFlash(true);
+      autoAdvanceTimer.current = setTimeout(() => {
+        advanceToNext();
+      }, 700);
+    }
+  };
+
+  const handleNext = () => {
+    if (!hasAnswered) return;
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    setCorrectFlash(false);
+    advanceToNext();
   };
 
   const handleNavSelect = (i: number) => {
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    setCorrectFlash(false);
     setIndex(i);
     setShowNav(false);
   };
@@ -287,12 +293,15 @@ export default function QuizPage() {
     );
   }
 
+  const isCurrentWrong = hasAnswered && !answered[current.id].correct;
+  const isCurrentCorrect = hasAnswered && answered[current.id].correct;
+
   /* ----------- Main Quiz (full viewport, no page scroll) ----------- */
   return (
     <main className="h-dvh flex flex-col bg-background overflow-hidden">
-      {/* ===== Top bar (fixed height) ===== */}
+      {/* ===== Top bar ===== */}
       <header className="shrink-0 bg-card border-b border-border z-30">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <button
             onClick={() => router.push('/')}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-smooth touch-manipulation rounded-md py-1 -ml-1 px-1"
@@ -379,47 +388,58 @@ export default function QuizPage() {
         </>
       )}
 
-      {/* ===== Content area (fills remaining height) ===== */}
-      <div className="flex-1 flex min-h-0 max-w-6xl mx-auto w-full">
-        {/* Left sidebar - question nav (desktop) */}
-        <aside className="hidden lg:flex flex-col w-[200px] shrink-0 border-r border-border bg-card/50">
-          {/* Sidebar header */}
-          <div className="shrink-0 px-3 py-3 border-b border-border">
-            <h3 className="text-xs font-semibold text-foreground">题目导航</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+      {/* Correct answer flash overlay */}
+      {correctFlash && (
+        <div className="fixed inset-0 z-20 pointer-events-none flex items-center justify-center animate-fade-in">
+          <div className="w-20 h-20 rounded-full bg-[#22c55e] flex items-center justify-center shadow-lg shadow-[#22c55e]/30 animate-correct-pop">
+            <IconCheck size={40} />
+          </div>
+        </div>
+      )}
+
+      {/* ===== Content area ===== */}
+      <div className="flex-1 flex min-h-0 max-w-7xl mx-auto w-full">
+        {/* Left sidebar - question nav (desktop, wider) */}
+        <aside className="hidden lg:flex flex-col w-[280px] shrink-0 border-r border-border bg-card/50">
+          <div className="shrink-0 px-4 py-3.5 border-b border-border">
+            <h3 className="text-sm font-semibold text-foreground">题目导航</h3>
+            <p className="text-[11px] text-muted-foreground mt-1">
               {'共 '}{list.length}{' 题，已答 '}{answeredCount}{' 题'}
             </p>
           </div>
 
-          {/* Legend */}
-          <div className="shrink-0 px-3 py-2 flex flex-wrap gap-x-3 gap-y-1 border-b border-border text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-primary" /> 当前
+          <div className="shrink-0 px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1 border-b border-border text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-primary" />
+              <span>当前</span>
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm ring-1.5 ring-[#22c55e] bg-[#22c55e]/10" /> 正确
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded ring-2 ring-[#22c55e] bg-[#22c55e]/10" />
+              <span>正确</span>
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm ring-1.5 ring-[#ef4444] bg-[#ef4444]/10" /> 错误
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded ring-2 ring-[#ef4444] bg-[#ef4444]/10" />
+              <span>错误</span>
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm ring-1 ring-border bg-card" /> 未做
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded ring-1 ring-border bg-card" />
+              <span>未做</span>
             </span>
           </div>
 
           {/* Grid (scrollable) */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-3 quiz-nav-scroll">
-            <QuestionGrid list={list} index={index} answered={answered} onSelect={setIndex} />
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 quiz-nav-scroll">
+            <QuestionGrid list={list} index={index} answered={answered} onSelect={(i) => { if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current); setCorrectFlash(false); setIndex(i); }} />
           </div>
 
           {/* Stats footer */}
-          <div className="shrink-0 px-3 py-2.5 border-t border-border bg-muted/30 flex justify-between text-[11px]">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
+          <div className="shrink-0 px-4 py-3 border-t border-border bg-muted/30 flex justify-between text-xs">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
               <span className="text-muted-foreground"><span className="font-bold text-[#16a34a]">{correctCount}</span> 对</span>
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#ef4444]" />
               <span className="text-muted-foreground"><span className="font-bold text-[#dc2626]">{wrongCount}</span> 错</span>
             </span>
             <span className="text-muted-foreground">
@@ -428,14 +448,13 @@ export default function QuizPage() {
           </div>
         </aside>
 
-        {/* Right: Question content (scrollable) */}
+        {/* Right: Question content */}
         <div ref={contentRef} className="flex-1 min-w-0 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-            {/* Question card */}
+          <div className="flex-1 overflow-y-auto p-4 lg:p-8">
             <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden animate-fade-in max-w-2xl mx-auto" key={current.id}>
               {/* Question header */}
-              <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center gap-3">
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm">
+              <div className="bg-primary/5 border-b border-primary/10 px-5 py-3.5 flex items-center gap-3">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm">
                   {index + 1}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -443,21 +462,20 @@ export default function QuizPage() {
                     {current.options.length === 2 ? '判断题' : '单选题'}
                   </span>
                 </div>
-                {hasAnswered && (
-                  <span
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                      answered[current.id].correct
-                        ? 'bg-[#22c55e]/15 text-[#16a34a]'
-                        : 'bg-[#ef4444]/15 text-[#dc2626]'
-                    }`}
-                  >
-                    {answered[current.id].correct ? '已答对' : '已答错'}
+                {isCurrentCorrect && (
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#22c55e]/15 text-[#16a34a]">
+                    已答对
+                  </span>
+                )}
+                {isCurrentWrong && (
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#ef4444]/15 text-[#dc2626]">
+                    已答错
                   </span>
                 )}
               </div>
 
               {/* Question body */}
-              <div className="px-4 py-5 lg:px-6">
+              <div className="px-5 py-5 lg:px-6">
                 <h2 className="text-base lg:text-lg font-medium text-card-foreground whitespace-pre-wrap leading-relaxed text-pretty mb-5">
                   {current.title}
                 </h2>
@@ -547,28 +565,24 @@ export default function QuizPage() {
                   })}
                 </div>
 
-                {/* Feedback banner */}
-                {hasAnswered && (
+                {/* Feedback banner - only for wrong answers */}
+                {isCurrentWrong && (
                   <div className="mt-4">
-                    <AnswerFeedback
-                      correct={answered[current.id].correct}
-                      correctAnswer={getCorrectLabel()}
-                    />
+                    <AnswerFeedback correctAnswer={getCorrectLabel()} />
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Bottom action bar (inside flow, not fixed) */}
+          {/* Bottom action bar - only show for wrong answers or revisiting */}
           <div
             className={`shrink-0 border-t border-border bg-card/95 backdrop-blur-md transition-all duration-200 ${
-              hasAnswered ? 'py-3' : 'py-0 h-0 overflow-hidden border-t-0'
+              hasAnswered && !correctFlash ? 'py-3' : 'py-0 h-0 overflow-hidden border-t-0'
             }`}
           >
-            {hasAnswered && (
+            {hasAnswered && !correctFlash && (
               <div className="max-w-2xl mx-auto px-4 flex justify-between items-center gap-4">
-                {/* Left: Stats */}
                 <div className="flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
@@ -584,7 +598,6 @@ export default function QuizPage() {
                   </div>
                 </div>
 
-                {/* Right: Next button */}
                 <button
                   onClick={handleNext}
                   className="shrink-0 flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground active:bg-primary-hover touch-manipulation active:scale-[0.98] transition-smooth shadow-md shadow-primary/20 text-sm"

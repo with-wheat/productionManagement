@@ -116,3 +116,16 @@ body {
 .animate-pulse-error {
   animation: pulse-error 0.8s ease-out;
 }
+
+/* Correct answer pop animation */
+@keyframes correctPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.animate-correct-pop {
+  animation: correctPop 0.7s ease-out forwards;
+  color: #fff;
+}
