@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Question } from '@/types/question';
 
@@ -45,24 +45,24 @@ function IconGrid() {
 /* ---- Progress Ring ---- */
 function ProgressRing({ current, total }: { current: number; total: number }) {
   const percentage = total > 0 ? (current / total) * 100 : 0;
-  const r = 18;
+  const r = 16;
   const circumference = 2 * Math.PI * r;
   const offset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="relative flex items-center justify-center w-11 h-11">
-      <svg width="44" height="44" viewBox="0 0 44 44" className="-rotate-90">
-        <circle cx="22" cy="22" r={r} stroke="var(--muted)" strokeWidth="4" fill="none" />
+    <div className="relative flex items-center justify-center w-10 h-10">
+      <svg width="40" height="40" viewBox="0 0 40 40" className="-rotate-90">
+        <circle cx="20" cy="20" r={r} stroke="var(--muted)" strokeWidth="3.5" fill="none" />
         <circle
-          cx="22" cy="22" r={r}
-          stroke="var(--primary)" strokeWidth="4" fill="none"
+          cx="20" cy="20" r={r}
+          stroke="var(--primary)" strokeWidth="3.5" fill="none"
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           className="transition-all duration-500 ease-out"
         />
       </svg>
-      <span className="absolute text-[11px] font-bold text-primary">
+      <span className="absolute text-[10px] font-bold text-primary">
         {Math.round(percentage)}%
       </span>
     </div>
@@ -79,25 +79,25 @@ function AnswerFeedback({
 }) {
   return (
     <div
-      className={`rounded-xl px-4 py-3.5 flex items-start gap-3 animate-slide-up ${
+      className={`rounded-xl px-4 py-3 flex items-start gap-3 animate-slide-up ${
         correct
           ? 'bg-[#22c55e]/10 border-2 border-[#22c55e]/40'
           : 'bg-[#ef4444]/10 border-2 border-[#ef4444]/40'
       }`}
     >
       <div
-        className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+        className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
           correct ? 'bg-[#22c55e] text-[#fff]' : 'bg-[#ef4444] text-[#fff]'
         }`}
       >
-        {correct ? <IconCheck size={16} /> : <IconX size={16} />}
+        {correct ? <IconCheck size={14} /> : <IconX size={14} />}
       </div>
       <div className="flex-1 min-w-0">
         <p className={`font-semibold text-sm ${correct ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
           {correct ? '回答正确！' : '回答错误'}
         </p>
         {!correct && (
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {'正确答案是 '}
             <span className="font-bold text-[#16a34a] bg-[#22c55e]/15 px-1.5 py-0.5 rounded">
               {correctAnswer}
@@ -109,7 +109,7 @@ function AnswerFeedback({
   );
 }
 
-/* ---- Question Number Grid (shared between sidebar and mobile panel) ---- */
+/* ---- Question Number Grid ---- */
 function QuestionGrid({
   list,
   index,
@@ -122,7 +122,7 @@ function QuestionGrid({
   onSelect: (i: number) => void;
 }) {
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-5 gap-1.5">
       {list.map((q, i) => {
         const info = answered[q.id];
         const isCurrent = i === index;
@@ -133,13 +133,13 @@ function QuestionGrid({
             key={q.id}
             type="button"
             onClick={() => onSelect(i)}
-            className={`flex items-center justify-center rounded-lg aspect-square text-xs font-bold touch-manipulation transition-all duration-150 active:scale-95 ${
+            className={`flex items-center justify-center rounded-md aspect-square text-[11px] font-bold touch-manipulation transition-all duration-150 active:scale-95 ${
               isCurrent
                 ? isDone
                   ? isCorrect
-                    ? 'bg-[#22c55e] text-[#fff] shadow-md shadow-[#22c55e]/30 ring-2 ring-[#22c55e]'
-                    : 'bg-[#ef4444] text-[#fff] shadow-md shadow-[#ef4444]/30 ring-2 ring-[#ef4444]'
-                  : 'bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-2 ring-primary'
+                    ? 'bg-[#22c55e] text-[#fff] shadow-sm shadow-[#22c55e]/30 ring-2 ring-[#22c55e]'
+                    : 'bg-[#ef4444] text-[#fff] shadow-sm shadow-[#ef4444]/30 ring-2 ring-[#ef4444]'
+                  : 'bg-primary text-primary-foreground shadow-sm shadow-primary/25 ring-2 ring-primary'
                 : isDone
                   ? isCorrect
                     ? 'bg-[#22c55e]/10 text-[#16a34a] font-extrabold ring-2 ring-[#22c55e]'
@@ -157,6 +157,7 @@ function QuestionGrid({
 
 export default function QuizPage() {
   const router = useRouter();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [list, setList] = useState<Question[]>([]);
@@ -208,6 +209,11 @@ export default function QuizPage() {
     setSelected(info?.selected ?? null);
   }, [current, answered]);
 
+  // Scroll content area to top when question changes
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [index]);
+
   const getCorrectLabel = () => {
     const raw = current?.answer?.toUpperCase()?.trim() ?? '';
     if (OPTION_LABELS.includes(raw.slice(0, 1))) return raw.slice(0, 1);
@@ -250,7 +256,7 @@ export default function QuizPage() {
   /* ----------- Loading ----------- */
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center px-4 py-6">
+      <main className="h-dvh flex items-center justify-center px-4">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-muted-foreground text-sm">加载题目中...</p>
@@ -262,7 +268,7 @@ export default function QuizPage() {
   /* ----------- Error ----------- */
   if (error || !list.length) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-4 py-6 gap-4">
+      <main className="h-dvh flex flex-col items-center justify-center px-4 gap-4">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="12" r="10" stroke="var(--destructive)" strokeWidth="2" />
@@ -281,12 +287,12 @@ export default function QuizPage() {
     );
   }
 
-  /* ----------- Main Quiz ----------- */
+  /* ----------- Main Quiz (full viewport, no page scroll) ----------- */
   return (
-    <main className="min-h-screen bg-background">
-      {/* Top bar */}
-      <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-md border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <main className="h-dvh flex flex-col bg-background overflow-hidden">
+      {/* ===== Top bar (fixed height) ===== */}
+      <header className="shrink-0 bg-card border-b border-border z-30">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <button
             onClick={() => router.push('/')}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-smooth touch-manipulation rounded-md py-1 -ml-1 px-1"
@@ -316,22 +322,18 @@ export default function QuizPage() {
                 {' 题'}
               </p>
               <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                {'正确 '}
+                {'对 '}
                 <span className="text-[#16a34a] font-semibold">{correctCount}</span>
-                {wrongCount > 0 && (
-                  <>
-                    {' / 错误 '}
-                    <span className="text-[#dc2626] font-semibold">{wrongCount}</span>
-                  </>
-                )}
+                {' / 错 '}
+                <span className="text-[#dc2626] font-semibold">{wrongCount}</span>
               </p>
             </div>
             <ProgressRing current={answeredCount} total={list.length} />
           </div>
         </div>
 
-        {/* Full-width progress bar */}
-        <div className="h-1 bg-muted">
+        {/* Progress bar */}
+        <div className="h-0.5 bg-muted">
           <div
             className="h-full bg-primary transition-all duration-500 ease-out"
             style={{ width: `${list.length > 0 ? (answeredCount / list.length) * 100 : 0}%` }}
@@ -339,272 +341,262 @@ export default function QuizPage() {
         </div>
       </header>
 
-      {/* Mobile nav panel (slide-down) */}
+      {/* Mobile nav panel (overlay) */}
       {showNav && (
         <>
-          {/* backdrop */}
           <div
-            className="lg:hidden fixed inset-0 z-20 bg-foreground/20 backdrop-blur-sm animate-fade-in"
+            className="lg:hidden fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm animate-fade-in"
             onClick={() => setShowNav(false)}
           />
-          <div className="lg:hidden fixed top-[61px] left-0 right-0 z-25 bg-card border-b border-border shadow-lg p-4 animate-slide-up max-h-[60vh] overflow-y-auto">
-            {/* Stats bar */}
-            <div className="flex items-center gap-4 mb-3 pb-3 border-b border-border">
-              <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded bg-primary" />
-                  <span className="text-muted-foreground">当前</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded ring-2 ring-[#22c55e] bg-[#22c55e]/10" />
-                  <span className="text-muted-foreground">正确</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded ring-2 ring-[#ef4444] bg-[#ef4444]/10" />
-                  <span className="text-muted-foreground">错误</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded ring-1 ring-border bg-card" />
-                  <span className="text-muted-foreground">未做</span>
-                </span>
-              </div>
+          <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card border-b border-border shadow-lg animate-slide-up">
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground">题目导航</h3>
+              <button
+                onClick={() => setShowNav(false)}
+                className="text-muted-foreground hover:text-foreground p-1"
+              >
+                <IconX size={18} />
+              </button>
             </div>
-            <QuestionGrid list={list} index={index} answered={answered} onSelect={handleNavSelect} />
+            <div className="px-4 pb-2 flex gap-3 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm bg-primary" /> 当前
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm ring-2 ring-[#22c55e] bg-[#22c55e]/10" /> 正确
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm ring-2 ring-[#ef4444] bg-[#ef4444]/10" /> 错误
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-sm ring-1 ring-border bg-card" /> 未做
+              </span>
+            </div>
+            <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto">
+              <QuestionGrid list={list} index={index} answered={answered} onSelect={handleNavSelect} />
+            </div>
           </div>
         </>
       )}
 
-      {/* Desktop: two-column layout / Mobile: single column */}
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-32 flex gap-6">
-        {/* Left sidebar - question number grid (desktop only) */}
-        <aside className="hidden lg:block w-[220px] shrink-0">
-          <div className="sticky top-[80px]">
-            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-              {/* Sidebar header */}
-              <div className="px-4 py-3 border-b border-border bg-muted/30">
-                <h3 className="text-sm font-semibold text-foreground">题目导航</h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {'共 '}
-                  {list.length}
-                  {' 题，已答 '}
-                  {answeredCount}
-                  {' 题'}
-                </p>
-              </div>
+      {/* ===== Content area (fills remaining height) ===== */}
+      <div className="flex-1 flex min-h-0 max-w-6xl mx-auto w-full">
+        {/* Left sidebar - question nav (desktop) */}
+        <aside className="hidden lg:flex flex-col w-[200px] shrink-0 border-r border-border bg-card/50">
+          {/* Sidebar header */}
+          <div className="shrink-0 px-3 py-3 border-b border-border">
+            <h3 className="text-xs font-semibold text-foreground">题目导航</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {'共 '}{list.length}{' 题，已答 '}{answeredCount}{' 题'}
+            </p>
+          </div>
 
-              {/* Legend */}
-              <div className="px-4 pt-3 pb-2 flex flex-wrap gap-x-4 gap-y-1.5 border-b border-border">
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-primary" />
-                  当前
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="w-2.5 h-2.5 rounded-sm ring-2 ring-[#22c55e] bg-[#22c55e]/10" />
-                  正确
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="w-2.5 h-2.5 rounded-sm ring-2 ring-[#ef4444] bg-[#ef4444]/10" />
-                  错误
-                </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="w-2.5 h-2.5 rounded-sm ring-1 ring-border bg-card" />
-                  未做
-                </span>
-              </div>
+          {/* Legend */}
+          <div className="shrink-0 px-3 py-2 flex flex-wrap gap-x-3 gap-y-1 border-b border-border text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm bg-primary" /> 当前
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm ring-1.5 ring-[#22c55e] bg-[#22c55e]/10" /> 正确
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm ring-1.5 ring-[#ef4444] bg-[#ef4444]/10" /> 错误
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm ring-1 ring-border bg-card" /> 未做
+            </span>
+          </div>
 
-              {/* Grid */}
-              <div className="p-3 max-h-[calc(100vh-240px)] overflow-y-auto quiz-nav-scroll">
-                <QuestionGrid list={list} index={index} answered={answered} onSelect={setIndex} />
-              </div>
+          {/* Grid (scrollable) */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 quiz-nav-scroll">
+            <QuestionGrid list={list} index={index} answered={answered} onSelect={setIndex} />
+          </div>
 
-              {/* Stats footer */}
-              <div className="px-4 py-3 border-t border-border bg-muted/30 flex justify-between text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
-                  <span className="text-muted-foreground">
-                    <span className="font-bold text-[#16a34a]">{correctCount}</span> 对
-                  </span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#ef4444]" />
-                  <span className="text-muted-foreground">
-                    <span className="font-bold text-[#dc2626]">{wrongCount}</span> 错
-                  </span>
-                </span>
-                <span className="text-muted-foreground">
-                  <span className="font-bold text-foreground">{list.length - answeredCount}</span> 剩余
-                </span>
-              </div>
-            </div>
+          {/* Stats footer */}
+          <div className="shrink-0 px-3 py-2.5 border-t border-border bg-muted/30 flex justify-between text-[11px]">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
+              <span className="text-muted-foreground"><span className="font-bold text-[#16a34a]">{correctCount}</span> 对</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
+              <span className="text-muted-foreground"><span className="font-bold text-[#dc2626]">{wrongCount}</span> 错</span>
+            </span>
+            <span className="text-muted-foreground">
+              <span className="font-bold text-foreground">{list.length - answeredCount}</span> 剩余
+            </span>
           </div>
         </aside>
 
-        {/* Right: Question content area */}
-        <div className="flex-1 min-w-0">
-          {/* Question card */}
-          <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden animate-fade-in" key={current.id}>
-            {/* Question header */}
-            <div className="bg-primary/5 border-b border-primary/10 px-5 py-3.5 flex items-center gap-3">
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm">
-                {index + 1}
-              </span>
-              <div className="flex-1 min-w-0">
-                <span className="text-xs text-muted-foreground font-medium">
-                  {current.options.length === 2 ? '判断题' : '单选题'}
+        {/* Right: Question content (scrollable) */}
+        <div ref={contentRef} className="flex-1 min-w-0 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+            {/* Question card */}
+            <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden animate-fade-in max-w-2xl mx-auto" key={current.id}>
+              {/* Question header */}
+              <div className="bg-primary/5 border-b border-primary/10 px-4 py-3 flex items-center gap-3">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm">
+                  {index + 1}
                 </span>
-              </div>
-              {hasAnswered && (
-                <span
-                  className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                    answered[current.id].correct
-                      ? 'bg-[#22c55e]/15 text-[#16a34a]'
-                      : 'bg-[#ef4444]/15 text-[#dc2626]'
-                  }`}
-                >
-                  {answered[current.id].correct ? '已答对' : '已答错'}
-                </span>
-              )}
-            </div>
-
-            {/* Question body */}
-            <div className="px-5 py-6 sm:px-6">
-              <h2 className="text-base sm:text-lg font-medium text-card-foreground whitespace-pre-wrap leading-relaxed text-pretty mb-6">
-                {current.title}
-              </h2>
-
-              {/* Options */}
-              <div className="flex flex-col gap-3">
-                {current.options.map((opt, i) => {
-                  const label = OPTION_LABELS[i] ?? String(i + 1);
-                  const isChosen = selected === label;
-                  const correctLabel = getCorrectLabel();
-                  const isCorrectOption = correctLabel === label;
-                  const showResult = hasAnswered;
-                  const isWrong = showResult && isChosen && !isCorrectOption;
-                  const isRight = showResult && isCorrectOption;
-
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      disabled={hasAnswered}
-                      onClick={() => handleSelect(label)}
-                      className={`group w-full text-left rounded-xl px-4 py-4 transition-all duration-200 touch-manipulation active:scale-[0.99] flex items-center gap-4 relative ${
-                        showResult
-                          ? isRight
-                            ? 'bg-[#22c55e]/8 ring-2 ring-[#22c55e] shadow-sm shadow-[#22c55e]/10'
-                            : isWrong
-                              ? 'bg-[#ef4444]/8 ring-2 ring-[#ef4444] shadow-sm shadow-[#ef4444]/10'
-                              : 'bg-muted/30 ring-1 ring-border/50 opacity-50'
-                          : isChosen
-                            ? 'bg-primary/8 ring-2 ring-primary shadow-sm'
-                            : 'bg-muted/30 ring-1 ring-border hover:ring-primary/50 hover:bg-primary/5 active:bg-primary/8'
-                      }`}
-                    >
-                      {/* Option label circle */}
-                      <span
-                        className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-sm font-bold shrink-0 transition-all duration-200 ${
-                          showResult
-                            ? isRight
-                              ? 'bg-[#22c55e] text-[#fff] scale-110'
-                              : isWrong
-                                ? 'bg-[#ef4444] text-[#fff] scale-110'
-                                : 'bg-muted text-muted-foreground'
-                            : isChosen
-                              ? 'bg-primary text-primary-foreground scale-105'
-                              : 'bg-card text-muted-foreground ring-1 ring-border group-hover:ring-primary/40 group-hover:text-primary'
-                        }`}
-                      >
-                        {showResult && isRight ? (
-                          <IconCheck size={16} />
-                        ) : showResult && isWrong ? (
-                          <IconX size={16} />
-                        ) : (
-                          label
-                        )}
-                      </span>
-
-                      {/* Option text */}
-                      <span
-                        className={`text-[15px] sm:text-base leading-relaxed flex-1 ${
-                          showResult
-                            ? isRight
-                              ? 'text-[#16a34a] font-semibold'
-                              : isWrong
-                                ? 'text-[#dc2626] font-medium'
-                                : 'text-muted-foreground'
-                            : isChosen
-                              ? 'text-foreground font-medium'
-                              : 'text-foreground/80'
-                        }`}
-                      >
-                        {opt}
-                      </span>
-
-                      {/* Right-side status tag */}
-                      {showResult && isRight && (
-                        <span className="text-[11px] font-bold text-[#fff] bg-[#22c55e] rounded-full px-2.5 py-0.5 shrink-0">
-                          正确答案
-                        </span>
-                      )}
-                      {showResult && isWrong && (
-                        <span className="text-[11px] font-bold text-[#fff] bg-[#ef4444] rounded-full px-2.5 py-0.5 shrink-0">
-                          你的选择
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Feedback banner */}
-              {hasAnswered && (
-                <div className="mt-5">
-                  <AnswerFeedback
-                    correct={answered[current.id].correct}
-                    correctAnswer={getCorrectLabel()}
-                  />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {current.options.length === 2 ? '判断题' : '单选题'}
+                  </span>
                 </div>
-              )}
+                {hasAnswered && (
+                  <span
+                    className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                      answered[current.id].correct
+                        ? 'bg-[#22c55e]/15 text-[#16a34a]'
+                        : 'bg-[#ef4444]/15 text-[#dc2626]'
+                    }`}
+                  >
+                    {answered[current.id].correct ? '已答对' : '已答错'}
+                  </span>
+                )}
+              </div>
+
+              {/* Question body */}
+              <div className="px-4 py-5 lg:px-6">
+                <h2 className="text-base lg:text-lg font-medium text-card-foreground whitespace-pre-wrap leading-relaxed text-pretty mb-5">
+                  {current.title}
+                </h2>
+
+                {/* Options */}
+                <div className="flex flex-col gap-2.5">
+                  {current.options.map((opt, i) => {
+                    const label = OPTION_LABELS[i] ?? String(i + 1);
+                    const isChosen = selected === label;
+                    const correctLabel = getCorrectLabel();
+                    const isCorrectOption = correctLabel === label;
+                    const showResult = hasAnswered;
+                    const isWrong = showResult && isChosen && !isCorrectOption;
+                    const isRight = showResult && isCorrectOption;
+
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={hasAnswered}
+                        onClick={() => handleSelect(label)}
+                        className={`group w-full text-left rounded-xl px-4 py-3.5 transition-all duration-200 touch-manipulation active:scale-[0.99] flex items-center gap-3.5 relative ${
+                          showResult
+                            ? isRight
+                              ? 'bg-[#22c55e]/8 ring-2 ring-[#22c55e] shadow-sm shadow-[#22c55e]/10'
+                              : isWrong
+                                ? 'bg-[#ef4444]/8 ring-2 ring-[#ef4444] shadow-sm shadow-[#ef4444]/10'
+                                : 'bg-muted/30 ring-1 ring-border/50 opacity-50'
+                            : isChosen
+                              ? 'bg-primary/8 ring-2 ring-primary shadow-sm'
+                              : 'bg-muted/30 ring-1 ring-border hover:ring-primary/50 hover:bg-primary/5 active:bg-primary/8'
+                        }`}
+                      >
+                        {/* Option label circle */}
+                        <span
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold shrink-0 transition-all duration-200 ${
+                            showResult
+                              ? isRight
+                                ? 'bg-[#22c55e] text-[#fff] scale-110'
+                                : isWrong
+                                  ? 'bg-[#ef4444] text-[#fff] scale-110'
+                                  : 'bg-muted text-muted-foreground'
+                              : isChosen
+                                ? 'bg-primary text-primary-foreground scale-105'
+                                : 'bg-card text-muted-foreground ring-1 ring-border group-hover:ring-primary/40 group-hover:text-primary'
+                          }`}
+                        >
+                          {showResult && isRight ? (
+                            <IconCheck size={14} />
+                          ) : showResult && isWrong ? (
+                            <IconX size={14} />
+                          ) : (
+                            label
+                          )}
+                        </span>
+
+                        {/* Option text */}
+                        <span
+                          className={`text-sm lg:text-base leading-relaxed flex-1 ${
+                            showResult
+                              ? isRight
+                                ? 'text-[#16a34a] font-semibold'
+                                : isWrong
+                                  ? 'text-[#dc2626] font-medium'
+                                  : 'text-muted-foreground'
+                              : isChosen
+                                ? 'text-foreground font-medium'
+                                : 'text-foreground/80'
+                          }`}
+                        >
+                          {opt}
+                        </span>
+
+                        {/* Right-side status tag */}
+                        {showResult && isRight && (
+                          <span className="text-[11px] font-bold text-[#fff] bg-[#22c55e] rounded-full px-2 py-0.5 shrink-0">
+                            正确答案
+                          </span>
+                        )}
+                        {showResult && isWrong && (
+                          <span className="text-[11px] font-bold text-[#fff] bg-[#ef4444] rounded-full px-2 py-0.5 shrink-0">
+                            你的选择
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Feedback banner */}
+                {hasAnswered && (
+                  <div className="mt-4">
+                    <AnswerFeedback
+                      correct={answered[current.id].correct}
+                      correctAnswer={getCorrectLabel()}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
+          </div>
+
+          {/* Bottom action bar (inside flow, not fixed) */}
+          <div
+            className={`shrink-0 border-t border-border bg-card/95 backdrop-blur-md transition-all duration-200 ${
+              hasAnswered ? 'py-3' : 'py-0 h-0 overflow-hidden border-t-0'
+            }`}
+          >
+            {hasAnswered && (
+              <div className="max-w-2xl mx-auto px-4 flex justify-between items-center gap-4">
+                {/* Left: Stats */}
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
+                    <span className="text-muted-foreground text-xs">
+                      <span className="font-semibold text-[#16a34a]">{correctCount}</span> 对
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#ef4444]" />
+                    <span className="text-muted-foreground text-xs">
+                      <span className="font-semibold text-[#dc2626]">{wrongCount}</span> 错
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right: Next button */}
+                <button
+                  onClick={handleNext}
+                  className="shrink-0 flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground active:bg-primary-hover touch-manipulation active:scale-[0.98] transition-smooth shadow-md shadow-primary/20 text-sm"
+                >
+                  {isLast ? '查看结果' : '下一题'}
+                  <IconArrowRight />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Bottom action bar */}
-      {hasAnswered && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-md border-t border-border shadow-[0_-2px_20px_rgba(0,0,0,0.06)] animate-slide-up"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-        >
-          <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
-            {/* Left: Stats */}
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]" />
-                <span className="text-muted-foreground">
-                  <span className="font-semibold text-[#16a34a]">{correctCount}</span> 对
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]" />
-                <span className="text-muted-foreground">
-                  <span className="font-semibold text-[#dc2626]">{wrongCount}</span> 错
-                </span>
-              </div>
-            </div>
-
-            {/* Right: Next button */}
-            <button
-              onClick={handleNext}
-              className="shrink-0 flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 min-h-[44px] font-semibold text-primary-foreground active:bg-primary-hover touch-manipulation active:scale-[0.98] transition-smooth shadow-md shadow-primary/20"
-            >
-              {isLast ? '查看结果' : '下一题'}
-              <IconArrowRight />
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
