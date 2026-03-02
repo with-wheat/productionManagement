@@ -70,24 +70,24 @@ function AnswerFeedback({
     <div
       className={`rounded-xl px-4 py-3.5 flex items-start gap-3 animate-slide-up ${
         correct
-          ? 'bg-success/10 border-2 border-success/30'
-          : 'bg-destructive/10 border-2 border-destructive/30'
+          ? 'bg-[#22c55e]/10 border-2 border-[#22c55e]/40'
+          : 'bg-[#ef4444]/10 border-2 border-[#ef4444]/40'
       }`}
     >
       <div
         className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-          correct ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'
+          correct ? 'bg-[#22c55e] text-[#fff]' : 'bg-[#ef4444] text-[#fff]'
         }`}
       >
         {correct ? <IconCheck size={16} /> : <IconX size={16} />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`font-semibold text-sm ${correct ? 'text-success' : 'text-destructive'}`}>
-          {correct ? '回答正确' : '回答错误'}
+        <p className={`font-semibold text-sm ${correct ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+          {correct ? '回答正确！' : '回答错误'}
         </p>
         {!correct && (
-          <p className="text-sm text-muted-foreground mt-0.5">
-            正确答案是 <span className="font-bold text-success">{correctAnswer}</span>
+          <p className="text-sm text-muted-foreground mt-1">
+            正确答案是 <span className="font-bold text-[#16a34a] bg-[#22c55e]/15 px-1.5 py-0.5 rounded">{correctAnswer}</span>
           </p>
         )}
       </div>
@@ -256,10 +256,10 @@ export default function QuizPage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 pt-4 pb-32">
+      <div className="max-w-2xl mx-auto px-4 pt-5 pb-32">
         {/* Question number navigation */}
-        <div className="mb-4">
-          <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 quiz-nav-scroll">
+        <div className="mb-5">
+          <div className="flex gap-2 overflow-x-auto pb-2 px-0.5 quiz-nav-scroll">
             {list.map((q, i) => {
               const info = answered[q.id];
               const isCurrent = i === index;
@@ -270,21 +270,21 @@ export default function QuizPage() {
                   key={q.id}
                   type="button"
                   onClick={() => setIndex(i)}
-                  className={`flex items-center justify-center rounded-lg min-w-[34px] h-[34px] text-xs font-semibold shrink-0 touch-manipulation transition-smooth active:scale-95 ${
+                  className={`flex items-center justify-center rounded-lg min-w-[36px] h-[36px] text-xs font-bold shrink-0 touch-manipulation transition-smooth active:scale-95 ${
                     isCurrent
-                      ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
+                      ? isDone
+                        ? isCorrect
+                          ? 'bg-[#22c55e] text-[#fff] shadow-md shadow-[#22c55e]/30 ring-2 ring-[#22c55e]'
+                          : 'bg-[#ef4444] text-[#fff] shadow-md shadow-[#ef4444]/30 ring-2 ring-[#ef4444]'
+                        : 'bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-2 ring-primary'
                       : isDone
                         ? isCorrect
-                          ? 'bg-success/15 text-success ring-1 ring-success/30'
-                          : 'bg-destructive/15 text-destructive ring-1 ring-destructive/30'
+                          ? 'bg-[#22c55e]/10 text-[#16a34a] font-extrabold ring-2 ring-[#22c55e]'
+                          : 'bg-[#ef4444]/10 text-[#dc2626] font-extrabold ring-2 ring-[#ef4444]'
                         : 'bg-card text-muted-foreground ring-1 ring-border hover:ring-primary/40'
                   }`}
                 >
-                  {isDone && !isCurrent ? (
-                    isCorrect ? <IconCheck size={13} /> : <IconX size={13} />
-                  ) : (
-                    i + 1
-                  )}
+                  {i + 1}
                 </button>
               );
             })}
@@ -329,10 +329,10 @@ export default function QuizPage() {
                     className={`group w-full text-left rounded-xl px-4 py-3.5 min-h-[52px] transition-all duration-200 touch-manipulation active:scale-[0.99] flex items-center gap-3.5 relative ${
                       showResult
                         ? isRight
-                          ? 'bg-success/10 ring-2 ring-success shadow-[0_0_0_1px_rgba(16,185,129,0.1)]'
+                          ? 'bg-[#22c55e]/8 ring-2 ring-[#22c55e] shadow-sm shadow-[#22c55e]/10'
                           : isWrong
-                            ? 'bg-destructive/10 ring-2 ring-destructive shadow-[0_0_0_1px_rgba(239,68,68,0.1)]'
-                            : 'bg-muted/40 ring-1 ring-border/60 opacity-60'
+                            ? 'bg-[#ef4444]/8 ring-2 ring-[#ef4444] shadow-sm shadow-[#ef4444]/10'
+                            : 'bg-muted/30 ring-1 ring-border/50 opacity-50'
                         : isChosen
                           ? 'bg-primary/8 ring-2 ring-primary shadow-sm'
                           : 'bg-muted/30 ring-1 ring-border hover:ring-primary/50 hover:bg-primary/5 active:bg-primary/8'
@@ -343,9 +343,9 @@ export default function QuizPage() {
                       className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold shrink-0 transition-all duration-200 ${
                         showResult
                           ? isRight
-                            ? 'bg-success text-success-foreground scale-110'
+                            ? 'bg-[#22c55e] text-[#fff] scale-110'
                             : isWrong
-                              ? 'bg-destructive text-destructive-foreground scale-110'
+                              ? 'bg-[#ef4444] text-[#fff] scale-110'
                               : 'bg-muted text-muted-foreground'
                           : isChosen
                             ? 'bg-primary text-primary-foreground scale-105'
@@ -366,9 +366,9 @@ export default function QuizPage() {
                       className={`text-[15px] sm:text-base leading-relaxed flex-1 ${
                         showResult
                           ? isRight
-                            ? 'text-foreground font-medium'
+                            ? 'text-[#16a34a] font-semibold'
                             : isWrong
-                              ? 'text-foreground line-through decoration-destructive/40'
+                              ? 'text-[#dc2626] font-medium'
                               : 'text-muted-foreground'
                           : isChosen
                             ? 'text-foreground font-medium'
@@ -380,13 +380,13 @@ export default function QuizPage() {
 
                     {/* Right-side status tag for answered state */}
                     {showResult && isRight && (
-                      <span className="text-[11px] font-bold text-success bg-success/15 rounded-md px-2 py-0.5 shrink-0">
-                        正确
+                      <span className="text-[11px] font-bold text-[#fff] bg-[#22c55e] rounded-full px-2.5 py-0.5 shrink-0">
+                        正确答案
                       </span>
                     )}
                     {showResult && isWrong && (
-                      <span className="text-[11px] font-bold text-destructive bg-destructive/15 rounded-md px-2 py-0.5 shrink-0">
-                        你的答案
+                      <span className="text-[11px] font-bold text-[#fff] bg-[#ef4444] rounded-full px-2.5 py-0.5 shrink-0">
+                        你的选择
                       </span>
                     )}
                   </button>
