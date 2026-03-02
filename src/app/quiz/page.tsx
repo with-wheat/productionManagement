@@ -20,7 +20,7 @@ export default function QuizPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/questions');
+      const res = await fetch('/questions.json');
       if (!res.ok) throw new Error('加载题目失败');
       const data: Question[] = await res.json();
       if (!data.length) {

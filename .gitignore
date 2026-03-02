@@ -24,3 +24,7 @@ yarn-error.log*
 # types
 next-env.d.ts
 *.tsbuildinfo
+
+# build temp
+.api_bak
+deploy/

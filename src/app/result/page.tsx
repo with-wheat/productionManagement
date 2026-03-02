@@ -18,7 +18,7 @@ function ResultContent() {
   const loadWrong = useCallback(async () => {
     if (!wrongIds.length) return;
     try {
-      const res = await fetch('/api/questions');
+      const res = await fetch('/questions.json');
       if (!res.ok) return;
       const all: Question[] = await res.json();
       const map = new Map(all.map((q) => [q.id, q]));

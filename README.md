@@ -69,6 +69,57 @@ git push -u origin main
 - **推荐做法**：在本地通过「题库管理」上传 Excel 导入题目后，将 `data/questions.json` 一并提交到 Git，部署后站点以只读方式使用该题库。
 - 若需在**线上**继续导入/编辑题目，需要接入可写存储（如 Vercel Postgres、Vercel Blob 或其它数据库），并修改 `src/lib/questions.ts` 的读写逻辑。
 
+## 部署到 Gitee Pages（国内可访问）
+
+Gitee Pages 仅支持静态站点，使用 `npm run build:gitee` 生成静态文件，部署后题库为只读。
+
+### 1. 构建静态文件
+
+```bash
+# 确保 data/questions.json 已有题目（可用 npm run import-excel 导入）
+npm run build:gitee
+```
+
+产物在 `out/` 目录。也可用 `npm run deploy:gitee` 一次性构建并复制到 `deploy/` 目录。
+
+### 2. 推送到 Gitee 并开启 Pages
+
+**方式 A：单独分支存放构建结果**
+
+```bash
+# 在项目根目录执行
+git checkout --orphan gh-pages
+git reset --hard
+cp -r out/* .
+# Windows PowerShell: Copy-Item -Recurse out\* .
+git add .
+git commit -m "deploy"
+git remote add gitee https://gitee.com/你的用户名/仓库名.git
+git push -f gitee gh-pages
+```
+
+**方式 B：将 out 作为部署目录**
+
+在 Gitee 仓库 → **服务** → **Gitee Pages** → 选择分支、部署目录填 `out`（若 Gitee 支持子目录部署）。否则用方式 A。
+
+### 3. 开启 Gitee Pages
+
+1. 打开仓库 → **服务** → **Gitee Pages**
+2. 选择分支（如 `gh-pages` 或 `main`）
+3. 部署目录：若用方式 A 填 `/`，方式 B 填 `out`
+4. 保存并部署，等待生成访问链接（如 `https://用户名.gitee.io/仓库名`）
+
+### 4. 更新题库
+
+修改题目后需重新构建并推送：
+
+```bash
+npm run import-excel "你的Excel.xlsx"   # 更新 data/questions.json
+npm run build:gitee
+git checkout gh-pages
+# 将 out 内容复制到当前目录后提交推送
+```
+
 ## 项目结构
 
 ```
