@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_SC } from 'next/font/google';
 import './globals.css';
-
+import { Analytics } from '@vercel/analytics/next';
+ 
 const notoSansSC = Noto_Sans_SC({
   subsets: ['latin'],
   variable: '--font-noto-sans',
@@ -32,6 +33,7 @@ export default function RootLayout({
     <html lang="zh-CN" className={`${notoSansSC.variable} antialiased`}>
       <body className="min-h-screen bg-background font-sans">
         {children}
+        <Analytics />
       </body>
     </html>
   );
