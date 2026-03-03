@@ -437,7 +437,7 @@ export default function QuizPage() {
                 <span className="w-2.5 h-2.5 rounded-sm ring-1 ring-border bg-card" /> 未做
               </span>
             </div>
-            <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto">
+            <div className="px-4 pb-4 max-h-[50vh] overflow-y-auto pt-2">
               <QuestionGrid list={list} index={index} answered={answered} onSelect={handleNavSelect} />
             </div>
           </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Question } from '@/types/question';
 
 const QUESTIONS_URL = '/questions.json';
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
 
 function UploadIcon() {
   return (
@@ -34,6 +35,11 @@ export default function AdminPage() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [hasApi, setHasApi] = useState<boolean | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordAction, setPasswordAction] = useState<'upload' | 'delete' | null>(null);
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +61,53 @@ export default function AdminPage() {
   useEffect(() => {
     fetch('/api/questions').then((r) => setHasApi(r.ok)).catch(() => setHasApi(false));
   }, []);
+
+  const verifyPassword = (pwd: string) => {
+    return pwd === ADMIN_PASSWORD;
+  };
+
+  const handlePasswordSubmit = () => {
+    if (verifyPassword(password)) {
+      if (passwordAction === 'upload') {
+        setShowPasswordModal(false);
+        setPassword('');
+        setPasswordError('');
+        document.getElementById('file-upload-input')?.click();
+      } else if (passwordAction === 'delete' && pendingDeleteId) {
+        setShowPasswordModal(false);
+        setPassword('');
+        setPasswordError('');
+        executeDelete(pendingDeleteId);
+        setPendingDeleteId(null);
+      }
+    } else {
+      setPasswordError('密码错误');
+    }
+  };
+
+  const openUploadModal = () => {
+    setPassword('');
+    setPasswordError('');
+    setPasswordAction('upload');
+    setShowPasswordModal(true);
+  };
+
+  const openDeleteModal = (id: string) => {
+    setPassword('');
+    setPasswordError('');
+    setPasswordAction('delete');
+    setPendingDeleteId(id);
+    setShowPasswordModal(true);
+  };
+
+  const executeDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+      if (res.ok) await load();
+    } catch {
+      // ignore
+    }
+  };
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,16 +134,6 @@ export default function AdminPage() {
     } finally {
       setUploading(false);
       e.target.value = '';
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定删除该题？')) return;
-    try {
-      const res = await fetch(`/api/questions/${id}`, { method: 'DELETE' });
-      if (res.ok) await load();
-    } catch {
-      // ignore
     }
   };
 
@@ -149,8 +192,15 @@ export default function AdminPage() {
               <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
                 支持 .xlsx 格式，表头需包含：题干、A/B/C/D（或选项A等）、答案。单文件不超过 5MB。
               </p>
-              <label className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-5 py-4 min-h-[48px] cursor-pointer hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10 transition-smooth touch-manipulation">
+              <label
+                className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-5 py-4 min-h-[48px] cursor-pointer hover:border-primary/40 hover:bg-primary/5 active:bg-primary/10 transition-smooth touch-manipulation"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openUploadModal();
+                }}
+              >
                 <input
+                  id="file-upload-input"
                   type="file"
                   accept=".xlsx"
                   className="sr-only"
@@ -256,7 +306,7 @@ export default function AdminPage() {
                     {hasApi && (
                       <button
                         type="button"
-                        onClick={() => handleDelete(q.id)}
+                        onClick={() => openDeleteModal(q.id)}
                         className="shrink-0 p-2 text-muted-foreground hover:text-destructive active:text-destructive transition-smooth rounded-md opacity-0 group-hover:opacity-100 touch-manipulation"
                         aria-label="删除此题"
                       >
@@ -270,6 +320,43 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowPasswordModal(false)} />
+          <div className="relative bg-card rounded-xl shadow-lg border border-border p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">请输入密码</h3>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              placeholder="请输入管理员密码"
+              className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary transition-smooth mb-3"
+              autoFocus
+            />
+            {passwordError && (
+              <p className="text-sm text-destructive mb-4">{passwordError}</p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(false)}
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-smooth"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handlePasswordSubmit}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-smooth"
+              >
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
