@@ -98,7 +98,7 @@ function QuestionGrid({
 }: {
   list: Question[];
   index: number;
-  answered: Record<string, { selected: string; correct: boolean }>;
+  answered: Record<string, { selected: string[]; correct: boolean }>;
   onSelect: (i: number) => void;
 }) {
   return (
@@ -142,9 +142,9 @@ export default function QuizPage() {
   const [error, setError] = useState('');
   const [list, setList] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const [answered, setAnswered] = useState<
-    Record<string, { selected: string; correct: boolean }>
+    Record<string, { selected: string[]; correct: boolean }>
   >({});
   const [showNav, setShowNav] = useState(false);
   const [correctFlash, setCorrectFlash] = useState(false);
@@ -164,7 +164,7 @@ export default function QuizPage() {
       }
       setList(data);
       setIndex(0);
-      setSelected(null);
+      setSelected([]);
       setAnswered({});
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载失败');
@@ -195,7 +195,7 @@ export default function QuizPage() {
   useEffect(() => {
     if (!current) return;
     const info = answered[current.id];
-    setSelected(info?.selected ?? null);
+    setSelected(info?.selected ?? []);
   }, [current, answered]);
 
   // Scroll content area to top when question changes
@@ -203,10 +203,19 @@ export default function QuizPage() {
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [index]);
 
-  const getCorrectLabel = () => {
-    const raw = current?.answer?.toUpperCase()?.trim() ?? '';
-    if (OPTION_LABELS.includes(raw.slice(0, 1))) return raw.slice(0, 1);
-    return raw;
+  const getCorrectLabels = () => {
+    const raw = current?.answer?.toUpperCase() ?? '';
+    // 仅保留 A-D，并去重
+    const letters = Array.from(
+      new Set(raw.replace(/[^A-D]/g, '').split('').filter(Boolean))
+    );
+    return letters;
+  };
+
+  const getCorrectAnswerText = () => {
+    const labels = getCorrectLabels();
+    if (labels.length) return labels.join('、');
+    return current?.answer ?? '';
   };
 
   const advanceToNext = useCallback(() => {
@@ -222,22 +231,66 @@ export default function QuizPage() {
     }
     setCorrectFlash(false);
     setIndex((i) => i + 1);
-    setSelected(null);
+    setSelected([]);
   }, [isLast, list, answered, router]);
 
   const handleSelect = (optionLabel: string) => {
-    if (hasAnswered) return;
-    setSelected(optionLabel);
-    const correct =
-      optionLabel.toUpperCase() ===
-      (current.answer?.toUpperCase()?.slice(0, 1) ?? '');
+    if (!current || hasAnswered) return;
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    setCorrectFlash(false);
+
+    const correctLabels = getCorrectLabels();
+    const isMulti = correctLabels.length > 1;
+
+    if (isMulti) {
+      // 多选题：点击选项切换选中状态，不立即判分
+      setSelected((prev) =>
+        prev.includes(optionLabel)
+          ? prev.filter((l) => l !== optionLabel)
+          : [...prev, optionLabel]
+      );
+      return;
+    }
+
+    // 单选 / 判断题：点击即判分
+    setSelected([optionLabel]);
+    const isCorrect =
+      correctLabels.length === 1 &&
+      optionLabel.toUpperCase() === correctLabels[0];
+
     setAnswered((prev) => ({
       ...prev,
-      [current.id]: { selected: optionLabel, correct },
+      [current.id]: { selected: [optionLabel], correct: isCorrect },
     }));
 
-    // Auto-advance on correct answer after a brief flash
-    if (correct) {
+    if (isCorrect) {
+      setCorrectFlash(true);
+      autoAdvanceTimer.current = setTimeout(() => {
+        advanceToNext();
+      }, 700);
+    }
+  };
+
+  const handleConfirmMulti = () => {
+    if (!current || hasAnswered) return;
+    const correctLabels = getCorrectLabels();
+    if (!correctLabels.length || !selected.length) return;
+
+    const normSelected = Array.from(
+      new Set(selected.map((s) => s.toUpperCase()))
+    ).sort();
+    const target = [...correctLabels].sort();
+
+    const isCorrect =
+      normSelected.length === target.length &&
+      normSelected.every((v, i) => v === target[i]);
+
+    setAnswered((prev) => ({
+      ...prev,
+      [current.id]: { selected: normSelected, correct: isCorrect },
+    }));
+
+    if (isCorrect) {
       setCorrectFlash(true);
       autoAdvanceTimer.current = setTimeout(() => {
         advanceToNext();
@@ -295,6 +348,9 @@ export default function QuizPage() {
 
   const isCurrentWrong = hasAnswered && !answered[current.id].correct;
   const isCurrentCorrect = hasAnswered && answered[current.id].correct;
+  const correctLabels = getCorrectLabels();
+  const isMultiCurrent = correctLabels.length > 1;
+  const hasSelected = selected.length > 0;
 
   /* ----------- Main Quiz (full viewport, no page scroll) ----------- */
   return (
@@ -459,7 +515,11 @@ export default function QuizPage() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <span className="text-xs text-muted-foreground font-medium">
-                    {current.options.length === 2 ? '判断题' : '单选题'}
+                    {correctLabels.length > 1
+                      ? '多选题'
+                      : current.options.length === 2
+                        ? '判断题'
+                        : '单选题'}
                   </span>
                 </div>
                 {isCurrentCorrect && (
@@ -484,9 +544,8 @@ export default function QuizPage() {
                 <div className="flex flex-col gap-2.5">
                   {current.options.map((opt, i) => {
                     const label = OPTION_LABELS[i] ?? String(i + 1);
-                    const isChosen = selected === label;
-                    const correctLabel = getCorrectLabel();
-                    const isCorrectOption = correctLabel === label;
+                    const isChosen = selected.includes(label);
+                    const isCorrectOption = correctLabels.includes(label);
                     const showResult = hasAnswered;
                     const isWrong = showResult && isChosen && !isCorrectOption;
                     const isRight = showResult && isCorrectOption;
@@ -568,7 +627,7 @@ export default function QuizPage() {
                 {/* Feedback banner - only for wrong answers */}
                 {isCurrentWrong && (
                   <div className="mt-4">
-                    <AnswerFeedback correctAnswer={getCorrectLabel()} />
+                    <AnswerFeedback correctAnswer={getCorrectAnswerText()} />
                   </div>
                 )}
               </div>
@@ -578,10 +637,14 @@ export default function QuizPage() {
           {/* Bottom action bar - only show for wrong answers or revisiting */}
           <div
             className={`shrink-0 border-t border-border bg-card/95 backdrop-blur-md transition-all duration-200 ${
-              hasAnswered && !correctFlash ? 'py-3' : 'py-0 h-0 overflow-hidden border-t-0'
+              (!correctFlash &&
+                ((hasAnswered && !correctFlash) ||
+                  (isMultiCurrent && hasSelected && !hasAnswered))) ?
+                'py-3' :
+                'py-0 h-0 overflow-hidden border-t-0'
             }`}
           >
-            {hasAnswered && !correctFlash && (
+            {!correctFlash && (
               <div className="max-w-2xl mx-auto px-4 flex justify-between items-center gap-4">
                 <div className="flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-1.5">
@@ -598,13 +661,24 @@ export default function QuizPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleNext}
-                  className="shrink-0 flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground active:bg-primary-hover touch-manipulation active:scale-[0.98] transition-smooth shadow-md shadow-primary/20 text-sm"
-                >
-                  {isLast ? '查看结果' : '下一题'}
-                  <IconArrowRight />
-                </button>
+                {isMultiCurrent && !hasAnswered ? (
+                  <button
+                    onClick={handleConfirmMulti}
+                    disabled={!hasSelected}
+                    className="shrink-0 flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground active:bg-primary-hover touch-manipulation active:scale-[0.98] transition-smooth shadow-md shadow-primary/20 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    确认本题
+                    <IconArrowRight />
+                  </button>
+                ) : hasAnswered ? (
+                  <button
+                    onClick={handleNext}
+                    className="shrink-0 flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground active:bg-primary-hover touch-manipulation active:scale-[0.98] transition-smooth shadow-md shadow-primary/20 text-sm"
+                  >
+                    {isLast ? '查看结果' : '下一题'}
+                    <IconArrowRight />
+                  </button>
+                ) : null}
               </div>
             )}
           </div>
